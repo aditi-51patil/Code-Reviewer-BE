@@ -120,7 +120,8 @@ class CodeReviewWithGemini:
                     response_schema=response_model_schema,
                     response_mime_type="application/json",
                 ),  
-            )
+            )(response)
+            print
             return response.text
 
         except Exception as e:
