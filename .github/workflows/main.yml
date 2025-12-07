@@ -7,11 +7,6 @@ jobs:
   ai-code-review:
     runs-on: ubuntu-latest
     steps:
-      - name: Install Git
-        run: apt-get update && apt-get install -y git
-      - name: Show secrets
-        run: |
-          echo ${{secrets.GITHUB_TOKEN}}
       - name: Checkout Code
         uses: actions/checkout@v5
         with: 
