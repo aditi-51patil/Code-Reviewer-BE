@@ -7,11 +7,14 @@ jobs:
   ai-code-review:
     runs-on: ubuntu-latest
     steps:
+      - name: Show secrets
+        run: |
+          echo ${{secrets.GITHUB_TOKEN}}
       - name: Checkout Code
         uses: actions/checkout@v5
         with: 
           fetch-depth: 0
-          token: ${{secrets.GITHUBTOKEN}}
+          token: ${{secrets.GITHUB_TOKEN}}
       
       - name: Get Changed files
         id: changed-files
@@ -53,7 +56,7 @@ jobs:
           PROJECT_ID: ${{secrets.PROJECT_ID}}
           LOCATION: ${{secrets.LOCATION}}
           PRODUCT_API_KEY: ${{secrets.PRODUCT_API_KEY}}
-          GITHUBTOKEN: ${{secrets.GITHUBTOKEN}}
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
           PR_NUMBER: ${{ github.event.number }}
           REPO_NAME: ${{ github.repository }}
           CHANGED_FILES: ${{ steps.changed-files.outputs.all_changed_files }}
