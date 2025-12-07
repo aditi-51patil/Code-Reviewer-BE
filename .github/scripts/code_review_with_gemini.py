@@ -154,7 +154,7 @@ class CodeReviewWithGemini:
             comment += "\n"
         return comment
 
-    async def post_inline_comments(self, session: aiohttp.ClientSession, file_path:str, issues: List[Dict[str, Any]], commit_id) ->int:
+    async def post_inline_comments(self, session: aiohttp.ClientSession, file_path:str, issues: List[Dict[str, Any]], comment, commit_id) ->int:
         """Post inline comments on specific lines using GitHub Review API"""
         if not issues:
             return 0
@@ -168,11 +168,10 @@ class CodeReviewWithGemini:
             if position is None:
                 print(f"Could not determine diff position for line {issue['line']} in {file_path}")
                 continue
-            comment_body = self.format_review_comment(issue)
             comments.append({
                 'path': file_path,
                 'position': position,
-                'body': comment_body 
+                'body': comment
             })
         if not comments:
             return 0
@@ -183,16 +182,16 @@ class CodeReviewWithGemini:
             }
         
         return await post_comments_api(self.repo_name, self.pr_number, self.github_token, data, session)
-    async def review_file(self, file_path:str) -> str:
+    async def review_file(self, file_path:str) -> Dict:
         """Review a single file (async)"""
         file_content = self.get_file_content(file_path)
         diff = self.get_file_diff(file_path)
         if not file_content and not diff:
             print(f"Could not get content for {file_path}, skipping")
             return ""
-        analysis = self.analyze_code_with_ai(file_path, file_content, diff)
+        analysis = await self.analyze_code_with_ai(file_path, file_content, diff)
         comment = self.format_review_comment(file_path, analysis)
-        return comment
+        return {file_path : file_path, analysis: analysis, comment: comment}
     
     async def run_review(self):
         """Main method to run the code review (async)"""
@@ -244,7 +243,5 @@ class CodeReviewWithGemini:
                 
                 if issues_with_lines:
                     await self.post_inline_comments(
-                        session, file_path, issues_with_lines, commit_id
+                        session, file_path, issues_with_lines,  review['comment'], commit_id
                     )
-            
-            
