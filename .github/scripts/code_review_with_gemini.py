@@ -8,7 +8,7 @@ from response_model import response_model_schema
 class CodeReviewWithGemini:
     def __init__(self):
         self.gemini_client = genai.Client(api_key= os.getenv('PRODUCT_API_KEY'))
-        self.github_token = os.getenv('GITHUBTOKEN')
+        self.github_token = os.getenv('GITHUB_TOKEN')
         self.pr_number = os.getenv('PR_NUMBER')
         self.repo_name = os.getenv('REPO_NAME')
         self.changed_files = os.getenv('CHANGED_FILES', '').split(',')
