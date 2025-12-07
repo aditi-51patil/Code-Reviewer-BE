@@ -220,7 +220,7 @@ class CodeReviewWithGemini:
             
             # Fetch all file diffs once
             print("Fetching all file diffs...")
-            self.file_diffs = await self.fetch_all_file_diffs(session)
+            await self.get_all_file_diff()
             
             # Review all files concurrently
             review_tasks = [self.review_file(file_path) for file_path in files_to_review]
