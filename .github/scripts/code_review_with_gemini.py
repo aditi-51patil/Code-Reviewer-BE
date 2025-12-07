@@ -104,7 +104,6 @@ class CodeReviewWithGemini:
         try:
             response  = await self.gemini_client.models.generate_content(
                 model="gemini-2.0-flash",
-                system_instruction=prompt,
                 contents=f'''
                     File: {file_path}
                             
