@@ -1,5 +1,6 @@
 import os
 from google import genai
+from google.genai import types
 from helpers import get_git_files, post_comments_api,  rating_emoji, severity_emoji, type_emoji
 from typing import List, Dict, Any
 import aiohttp
@@ -113,10 +114,13 @@ class CodeReviewWithGemini:
                     Full file content:
                     {file_content}
                 ''',
-                response_mime_type="application/json",
-                response_schema=response_model_schema,
-                temperature=0.0,
-                max_output_tokens=800
+                  config= types.GenerateContentConfig(
+                    system_instruction=prompt,
+                    max_output_tokens=800,
+                    temperature=0.0,
+                    response_schema=response_model_schema,
+                    response_mime_type="application/json",
+                ),  
             )
             return response.text
 
