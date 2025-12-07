@@ -7,6 +7,9 @@ jobs:
   ai-code-review:
     runs-on: ubuntu-latest
     steps:
+      - name: debug secretd
+        run: |
+          echo ${{secrets}}
       - name: Checkout Code
         uses: actions/checkout@v5
         with: 
