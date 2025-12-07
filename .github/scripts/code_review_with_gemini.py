@@ -195,7 +195,7 @@ class CodeReviewWithGemini:
             return ""
         analysis = await self.analyze_code_with_ai(file_path, file_content, diff)
         comment = self.format_review_comment(file_path, analysis)
-        return {file_path : file_path, analysis: analysis, comment: comment}
+        return { 'file_path' : file_path, 'analysis': analysis, 'comment': comment }
     
     async def run_review(self):
         """Main method to run the code review (async)"""
