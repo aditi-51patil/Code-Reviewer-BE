@@ -1,39 +1,39 @@
 # response_model.py
 # Simplified schema compatible with the generative models endpoint
 response_model_schema = {
-    "type": "object",
+    "type": "OBJECT",
     "properties": {
         "overall_rating": {
-            "type": "string",
+            "type": "STRING",
             "enum": ["APPROVE", "REQUEST_CHANGES", "COMMENT"]
         },
-        "summary": {"type": "string"},
+        "summary": {"type": "STRING"},
         "issues": {
-            "type": "array",
+            "type": "ARRAY",
             "items": {
-                "type": "object",
+                "type": "OBJECT",
                 "properties": {
                     "type": {
-                        "type": "string",
+                        "type": "STRING",
                         "enum": ["bug", "style", "performance", "security", "maintainability"]
                     },
                     "severity": {
-                        "type": "string",
+                        "type": "STRING",
                         "enum": ["high", "medium", "low"]
                     },
-                    # allow integer OR null using type array
+                    # allow integer OR null using type ARRAY
                     "line": {
-                        "type": ["integer", "null"]
+                        "type": ["INTEGER", "NULL"]
                     },
-                    "message": {"type": "string"},
-                    "suggestion": {"type": "string"}
+                    "message": {"type": "STRING"},
+                    "suggestion": {"type": "STRING"}
                 },
                 "required": ["type", "severity", "message"]
             }
         },
         "positive_feedback": {
-            "type": "array",
-            "items": {"type": "string"}
+            "type": "ARRAY",
+            "items": {"type": "STRING"}
         }
     },
     "required": ["overall_rating", "summary", "issues", "positive_feedback"]
