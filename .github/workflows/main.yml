@@ -9,7 +9,7 @@ jobs:
     steps:
       - name: debug secretd
         run: |
-          echo ${{secrets}}
+          echo ${{secrets.GITHUBTOKEN}}
       - name: Checkout Code
         uses: actions/checkout@v5
         with: 
