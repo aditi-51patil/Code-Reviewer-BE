@@ -53,7 +53,7 @@ jobs:
           PROJECT_ID: ${{secrets.PROJECT_ID}}
           LOCATION: ${{secrets.LOCATION}}
           PRODUCT_API_KEY: ${{secrets.PRODUCT_API_KEY}}
-          GITHUB_TOKEN: ${{secrets.GITHUBTOKEN}}
+          GITHUBTOKEN: ${{secrets.GITHUBTOKEN}}
           PR_NUMBER: ${{ github.event.number }}
           REPO_NAME: ${{ github.repository }}
           CHANGED_FILES: ${{ steps.changed-files.outputs.all_changed_files }}
