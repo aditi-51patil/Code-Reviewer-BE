@@ -1,4 +1,6 @@
-response_model_schema  = {
+# response_model.py
+# Simplified schema compatible with the generative models endpoint
+response_model_schema = {
     "type": "object",
     "properties": {
         "overall_rating": {
@@ -19,15 +21,14 @@ response_model_schema  = {
                         "type": "string",
                         "enum": ["high", "medium", "low"]
                     },
+                    # allow integer OR null using type array
                     "line": {
-                        # allow integer or null
-                        "anyOf": [{"type": "integer"}, {"type": "null"}]
+                        "type": ["integer", "null"]
                     },
                     "message": {"type": "string"},
                     "suggestion": {"type": "string"}
                 },
-                "required": ["type", "severity", "message"],
-                "additionalProperties": False
+                "required": ["type", "severity", "message"]
             }
         },
         "positive_feedback": {
@@ -35,6 +36,6 @@ response_model_schema  = {
             "items": {"type": "string"}
         }
     },
-    "required": ["overall_rating", "summary", "issues", "positive_feedback"],
-    "additionalProperties": False
+    "required": ["overall_rating", "summary", "issues", "positive_feedback"]
+   
 }
