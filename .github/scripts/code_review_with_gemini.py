@@ -14,7 +14,7 @@ class CodeReviewWithGemini:
         self.changed_files = os.getenv('CHANGED_FILES', '').split(',')
         self.files_diff = {}
 
-        if not(all[self.github_token, self.pr_number,self, self.repo_name]):
+        if not all([self.github_token, self.pr_number, self.repo_name]):
             raise ValueError('Missing required environment variables')
     
     async def get_all_file_diff(self)-> dict:
@@ -114,7 +114,7 @@ class CodeReviewWithGemini:
                     {file_content}
                 ''',
                 response_mime_type="application/json",
-                response_schema={response_model_schema},
+                response_schema=response_model_schema,
                 temperature=0.0,
                 max_output_tokens=800
             )

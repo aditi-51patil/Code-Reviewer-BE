@@ -1,5 +1,4 @@
 aiohttp
-asyncio
 google-cloud-aiplatform
 python-dotenv
 google-genai
