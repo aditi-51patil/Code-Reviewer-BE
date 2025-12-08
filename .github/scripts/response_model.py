@@ -7,7 +7,7 @@ class IssueModel(BaseModel):
     message: str
     suggestion: str
 
-class ResponseSchema:
+class ResponseSchema(BaseModel):
     overall_rating: RatingEnum
     summary: str
     issues: list[IssueModel]
