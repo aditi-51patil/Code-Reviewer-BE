@@ -5,7 +5,7 @@ from helpers import get_git_files, post_comments_api,  rating_emoji, severity_em
 from typing import List, Dict, Any
 import aiohttp
 import asyncio
-from response_model import response_model_schema
+from response_model import ResponseSchema
 class CodeReviewWithGemini:
     def __init__(self):
         self.gemini_client = genai.Client(api_key= os.getenv('PRODUCT_API_KEY'))
@@ -117,11 +117,11 @@ class CodeReviewWithGemini:
                     system_instruction=prompt,
                     max_output_tokens=800,
                     temperature=0.0,
-                    response_schema=response_model_schema,
+                    response_schema=ResponseSchema,
                     response_mime_type="application/json",
                 ),  
-            )(response)
-            print
+            )
+            print(response.text)
             return response.text
 
         except Exception as e:
