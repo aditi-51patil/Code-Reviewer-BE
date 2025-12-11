@@ -2,7 +2,6 @@ import requests
 from dotenv import load_dotenv
 import os
 
-
 class APIHelper:
     def __init__(self):
         load_dotenv()

@@ -17,7 +17,7 @@ def review_code_with_gemini(prompt):
             response_schema=ResponseSchema
         ),
         contents=f"""
-               PR Title: {prompt.pr_title}
+                PR Title: {prompt.pr_title}
                 Author: {prompt.author}
                 Description: {prompt.pr_body}
                 
@@ -39,4 +39,3 @@ def review_code_with_gemini(prompt):
                 'accept': 'application/vnd.github+json'
             }
         ), prompt.repo_name, prompt.author, prompt.pull_number)
-        print(comment)

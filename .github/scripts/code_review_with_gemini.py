@@ -1,10 +1,11 @@
 import os
 from google import genai
-from helpers import get_git_files, post_comments_api,  rating_emoji, severity_emoji, type_emoji
+from google.genai import types
+from helpers import get_git_files, post_comments_api,  rating_emoji, severity_emoji, type_emoji, _parse_retry_delay_from_error, _sleep_with_backoff
 from typing import List, Dict, Any
 import aiohttp
 import asyncio
-from response_model import response_model_schema
+from response_model import ResponseSchema
 class CodeReviewWithGemini:
     def __init__(self):
         self.gemini_client = genai.Client(api_key= os.getenv('PRODUCT_API_KEY'))
@@ -13,9 +14,12 @@ class CodeReviewWithGemini:
         self.repo_name = os.getenv('REPO_NAME')
         self.changed_files = os.getenv('CHANGED_FILES', '').split(',')
         self.files_diff = {}
+        self.max_concurrent = 1  # tune this
+        self._sem = asyncio.Semaphore(self.max_concurrent)
 
-        if not(all[self.github_token, self.pr_number,self, self.repo_name]):
+        if not all([self.github_token, self.pr_number, self.repo_name]):
             raise ValueError('Missing required environment variables')
+    
     
     async def get_all_file_diff(self)-> dict:
         files = await get_git_files(self.repo_name, self.pr_number, self.github_token)
@@ -23,12 +27,10 @@ class CodeReviewWithGemini:
         for file_info in files:
             filename = file_info['filename']
             file_diff_dict[filename] = file_info.get('patch', '')
-        self.files_diff = file_diff_dict
-    
+        self.files_diff = file_diff_dict  
     def get_file_diff(self, file_path: str) -> str:
         """Get the diff for a specific file from cache"""
-        return self.files_diff.get(file_path, '')
-    
+        return self.files_diff.get(file_path, '')  
     def get_diff_position(self, diff:str, line_number: int) -> int:
         '''
          Calculate the position in the diff for a given line number.
@@ -55,7 +57,6 @@ class CodeReviewWithGemini:
             elif line.startswith(' '):
                 current_new_line += 1
         return None
-
     async def get_pr_commit_id(self, session: aiohttp.ClientSession) -> str:
         """Get the latest commit ID from the PR"""
         try:
@@ -80,9 +81,10 @@ class CodeReviewWithGemini:
                 return f.read()
         except Exception as e:
             print(f"Error reading file {file_path} : {e}")
-            return ''
-    
+            return ''   
     async def analyze_code_with_ai(self,file_path: str, file_content: str, diff: str) -> Dict[str, any]:
+        max_attempts = 6
+        attempt = 0
         """Analyze code using OpenAI API"""
         prompt = f"""
         You are an expert code reviewer. Please review the provided code changes and provide constructive feedback.
@@ -100,36 +102,66 @@ class CodeReviewWithGemini:
         Lines starting with ' ' (space) are context.
         Be constructive and specific. If no issues are found, still provide positive feedback.
         """
-        try:
-            response  = await self.gemini_client.models.generate_content(
-                model="gemini-2.0-flash",
-                system_instruction=prompt,
-                contents=f'''
-                    File: {file_path}
-                            
-                    Diff:
-                    {diff}
+        async with self._sem:
+            while True:
+                try:
+                    response  = await self.gemini_client.models.generate_content(
+                        model="gemini-2.0-flash",
+                        contents=f'''
+                            File: {file_path}
+                                    
+                            Diff:
+                            {diff}
 
-                    Full file content:
-                    {file_content}
-                ''',
-                response_mime_type="application/json",
-                response_schema={response_model_schema},
-                temperature=0.0,
-                max_output_tokens=800
-            )
-            print(response.text)
-            return response.text
+                            Full file content:
+                            {file_content}
+                        ''',
+                        config= types.GenerateContentConfig(
+                            system_instruction=prompt,
+                            max_output_tokens=800,
+                            temperature=0.0,
+                            response_schema=ResponseSchema,
+                            response_mime_type="application/json",
+                        ),  
+                    )
+                    print(response.text)
+                    return response.text
 
-        except Exception as e:
-            print("generate_content failed:", e)
-            return {
-                "overall_rating": "COMMENT",
-                "summary": f"Error during AI analysis: {str(e)}",
-                "issues": [],
-                "positive_feedback": []
-            }
-                
+                except Exception as e:
+                    attempt += 1
+                    if attempt > max_attempts:
+                        print("generate_content failed:", e)
+                        return {
+                            "overall_rating": "COMMENT",
+                            "summary": f"Error during AI analysis: {str(e)}",
+                            "issues": [],
+                            "positive_feedback": []
+                        }
+                    retry_delay = await _parse_retry_delay_from_error(e)
+                    err_text = str(e).lower()
+                    if 'resource_exhausted' in err_text or 'rate_limit' in err_text or 'quota' in err_text or '429' in err_text:
+                        print(retry_delay)
+                        if retry_delay and retry_delay > 0:
+                            print(f"API quota hit; sleeping {retry_delay}s (server suggested)")
+                            await asyncio.sleep(retry_delay)
+                        else:
+                            print(f"API quota/rate limit hit; backoff attempt {attempt}")
+                            await _sleep_with_backoff(attempt, base=1.0, cap=30.0)
+                        continue
+
+                    # For other transient network errors, use backoff as well
+                    if 'timeout' in err_text or 'temporar' in err_text or 'connection' in err_text:
+                        await _sleep_with_backoff(attempt, base=0.5, cap=20.0)
+                        continue
+
+                    # Otherwise non-transient error: break and return safe fallback
+                    print("Non-retryable error from generate_content:", e)
+                    return {
+                        "overall_rating": "COMMENT",
+                        "summary": f"Error during AI analysis: {str(e)}",
+                        "issues": [],
+                        "positive_feedback": []
+                    }
     def format_review_comment(self, file_path:str,analysis:Dict[str,Any]) -> str:
         """Format the AI analysis into a GitHub comment"""
         comment = f"## 🤖 AI Code Review - {file_path}\n\n"
@@ -154,8 +186,7 @@ class CodeReviewWithGemini:
                 comment += f"- ✅ {feedback}\n"
             comment += "\n"
         return comment
-
-    async def post_inline_comments(self, session: aiohttp.ClientSession, file_path:str, issues: List[Dict[str, Any]], commit_id) ->int:
+    async def post_inline_comments(self, session: aiohttp.ClientSession, file_path:str, issues: List[Dict[str, Any]], comment, commit_id) ->int:
         """Post inline comments on specific lines using GitHub Review API"""
         if not issues:
             return 0
@@ -169,11 +200,10 @@ class CodeReviewWithGemini:
             if position is None:
                 print(f"Could not determine diff position for line {issue['line']} in {file_path}")
                 continue
-            comment_body = self.format_review_comment(issue)
             comments.append({
                 'path': file_path,
                 'position': position,
-                'body': comment_body 
+                'body': comment
             })
         if not comments:
             return 0
@@ -184,17 +214,16 @@ class CodeReviewWithGemini:
             }
         
         return await post_comments_api(self.repo_name, self.pr_number, self.github_token, data, session)
-    async def review_file(self, file_path:str) -> str:
+    async def review_file(self, file_path:str) -> Dict:
         """Review a single file (async)"""
         file_content = self.get_file_content(file_path)
         diff = self.get_file_diff(file_path)
         if not file_content and not diff:
             print(f"Could not get content for {file_path}, skipping")
             return ""
-        analysis = self.analyze_code_with_ai(file_path, file_content, diff)
+        analysis = await self.analyze_code_with_ai(file_path, file_content, diff)
         comment = self.format_review_comment(file_path, analysis)
-        return comment
-    
+        return { 'file_path' : file_path, 'analysis': analysis, 'comment': comment }  
     async def run_review(self):
         """Main method to run the code review (async)"""
         print(f"Starting AI code review for PR #{self.pr_number}")
@@ -221,7 +250,7 @@ class CodeReviewWithGemini:
             
             # Fetch all file diffs once
             print("Fetching all file diffs...")
-            self.file_diffs = await self.fetch_all_file_diffs(session)
+            await self.get_all_file_diff()
             
             # Review all files concurrently
             review_tasks = [self.review_file(file_path) for file_path in files_to_review]
@@ -245,7 +274,5 @@ class CodeReviewWithGemini:
                 
                 if issues_with_lines:
                     await self.post_inline_comments(
-                        session, file_path, issues_with_lines, commit_id
+                        session, file_path, issues_with_lines,  review['comment'], commit_id
                     )
-            
-            
