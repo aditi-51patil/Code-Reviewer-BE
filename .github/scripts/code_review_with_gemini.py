@@ -137,9 +137,10 @@ class CodeReviewWithGemini:
                             "issues": [],
                             "positive_feedback": []
                         }
-                    retry_delay = _parse_retry_delay_from_error(e)
+                    retry_delay = await _parse_retry_delay_from_error(e)
                     err_text = str(e).lower()
                     if 'resource_exhausted' in err_text or 'rate_limit' in err_text or 'quota' in err_text or '429' in err_text:
+                        print(retry_delay)
                         if retry_delay and retry_delay > 0:
                             print(f"API quota hit; sleeping {retry_delay}s (server suggested)")
                             await asyncio.sleep(retry_delay)
