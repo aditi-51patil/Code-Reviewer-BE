@@ -1,4 +1,6 @@
 import aiohttp
+import random
+import asyncio
 
 async def get_git_files(repo_name, pr_number, github_token):
     headers = {
@@ -14,7 +16,12 @@ async def get_git_files(repo_name, pr_number, github_token):
     except Exception as e:
         print(f"Error getting diff from {pr_number} : {e}")
         return {}
-    
+async def p(attempt: int, base: float = 1.0, cap: float = 30.0):
+    """Exponential backoff with jitter."""
+    exp = min(cap, base * (2 ** attempt))
+    jitter = random.uniform(0, exp * 0.1)
+    await asyncio.sleep(exp + jitter)
+
 async def post_comments_api(repo_name, pr_number, github_token, data, session):
     try:
         url = f"https://api.github.com/repos/{repo_name}/pulls/{pr_number}/reviews"
@@ -35,6 +42,32 @@ async def post_comments_api(repo_name, pr_number, github_token, data, session):
         print(f"Error posting inline comments for {data['file_path']}: {e}")
         return 0
 
+async def _sleep_with_backoff(attempt: int, base: float = 1.0, cap: float = 30.0):
+    """Exponential backoff with jitter."""
+    exp = min(cap, base * (2 ** attempt))
+    jitter = random.uniform(0, exp * 0.1)
+    await asyncio.sleep(exp + jitter)
+async def _parse_retry_delay_from_error(exc) -> float:
+    try:
+        
+        if isinstance(exc.args[0],dict):
+            d = exc.args[0]
+        else:
+            d = None
+        if d:
+            for detail in d.get('error',{}).get('details',[]):
+                if detail.get('@type','').endswith('RetryInfo'):
+                    retry = detail.get('retryDelay')
+                    if isinstance(retry, str) and retry.endswith('s'):
+                        return float(retry[:-1])
+        import re
+        text = str(exc)
+        m = re.search(r"retryDelay['\"]?\s*[:=]\s*['\"]?(\d+(?:\.\d+)?)s", text)
+        if m:
+            return float(m.group(1))
+    except Exception:
+        pass
+    return 0.0
     
 
 rating_emoji = {
